@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="신학 아카이브" />
+  <title>Theologia Archive — 개인 신학 연구·토론</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .thread-line {
+      border-left: 2px solid #e7e5e4;
+      transition: border-color 0.2s ease;
+    }
+    .thread-line:hover {
+      border-left-color: #4f46e5;
+    }
+  </style>
+</head>
+<body class="bg-stone-50 text-stone-900 antialiased selection:bg-indigo-100 selection:text-indigo-900">
+  <div class="max-w-6xl mx-auto px-4 py-6 md:py-8">
+    <!-- 상단 헤더 -->
+    <header class="bg-white border border-stone-200 rounded-2xl p-5 mb-6 shadow-sm flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2 text-xs font-semibold text-indigo-600 uppercase tracking-wider">
+          <span>Personal Theological Archive</span>
+          <span>•</span>
+          <span>On-Demand Generation</span>
+        </div>
+        <h1 class="text-2xl font-serif font-bold text-stone-900 mt-1">신학 칼럼 & 다중 관점 토론장</h1>
+        <p class="text-xs text-stone-500 mt-1">
+          원전·문헌 출처 기반 15문장 내외 칼럼 · AI 주관 배제 · Reddit형 다학파 토론 아카이브
+        </p>
+      </div>
+
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+        <input
+          id="topic-input"
+          type="text"
+          placeholder="주제 지정(선택, 비우면 자동 선정)"
+          class="text-sm px-3 py-2 border border-stone-300 rounded-xl focus:outline-none focus:border-indigo-500 bg-stone-50"
+        />
+        <button
+          id="generate-btn"
+          onclick="generateNewColumn()"
+          class="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white text-sm font-semibold px-4 py-2 rounded-xl transition cursor-pointer whitespace-nowrap"
+        >
+          새 칼럼 생성
+        </button>
+      </div>
+    </header>
+
+    <!-- 상태 알림 바 -->
+    <div id="status-banner" class="hidden mb-6 px-4 py-3 rounded-xl text-sm border"></div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <!-- 좌측: 아카이브 목록 및 API 키 설정 -->
+      <aside class="lg:col-span-4 space-y-5">
+        <div class="bg-white border border-stone-200 rounded-2xl p-4 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-bold text-sm text-stone-800">아카이빙된 칼럼</h2>
+            <span id="archive-count" class="text-xs text-stone-400 font-mono">0편</span>
+          </div>
+          <input
+            id="search-input"
+            type="text"
+            oninput="renderArchiveList()"
+            placeholder="제목 또는 날짜 검색..."
+            class="w-full text-xs px-3 py-2 mb-3 border border-stone-200 rounded-lg focus:outline-none focus:border-indigo-500"
+          />
+          <ul id="archive-list" class="space-y-1.5 max-h-80 overflow-y-auto pr-1"></ul>
+        </div>
+
+        <div class="bg-white border border-stone-200 rounded-2xl p-4 shadow-sm space-y-3">
+          <div class="flex items-center justify-between">
+            <label for="api-key-input" class="text-xs font-bold text-stone-700">Gemini API Key</label>
+            <span class="text-[11px] text-stone-400">브라우저 로컬 저장</span>
+          </div>
+          <input
+            id="api-key-input"
+            type="password"
+            placeholder="AIzaSy..."
+            onchange="saveApiKey()"
+            class="w-full text-xs px-3 py-2 border border-stone-300 rounded-lg focus:outline-none focus:border-indigo-500"
+          />
+          <div class="flex items-center justify-between pt-1">
+            <button
+              onclick="saveApiKey()"
+              class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+            >
+              키 저장
+            </button>
+            <button
+              onclick="resetDemoArchive()"
+              class="text-xs text-stone-400 hover:text-rose-600 cursor-pointer"
+            >
+              샘플 데이터 초기화
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 우측: 메인 칼럼 및 토론 창 -->
+      <main class="lg:col-span-8 space-y-6">
+        <article class="bg-white border border-stone-200 rounded-2xl p-6 md:p-8 shadow-sm">
+          <div class="flex flex-wrap items-center gap-2 text-xs text-stone-500 mb-2">
+            <span id="post-date" class="font-mono font-semibold text-indigo-600"></span>
+            <span>•</span>
+            <span>객관적 문헌 정리 (AI 주관 미포함)</span>
+          </div>
+          <h2 id="post-title" class="text-xl md:text-2xl font-serif font-bold text-stone-900 leading-snug mb-5"></h2>
+          <div id="post-content" class="space-y-3.5 font-serif text-[15px] md:text-[16px] leading-relaxed text-stone-800"></div>
+
+          <div class="mt-7 pt-4 border-t border-stone-100 bg-stone-50 rounded-xl p-4">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-stone-500 mb-2">인용 문헌 및 출처</h3>
+            <ul id="post-references" class="list-disc list-inside text-xs text-stone-600 space-y-1"></ul>
+          </div>
+        </article>
+
+        <section class="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-base font-bold text-stone-800">토론 스레드</h3>
+            <span class="text-xs text-stone-400">댓글·대댓글 시 다중 관점 응답 생성</span>
+          </div>
+
+          <div class="mb-6">
+            <textarea
+              id="new-comment-text"
+              rows="3"
+              placeholder="이 칼럼의 논점이나 인용 문헌에 대해 질문 또는 반론을 남겨보세요."
+              class="w-full p-3 text-sm border border-stone-300 rounded-xl focus:outline-none focus:border-indigo-500"
+            ></textarea>
+            <div class="flex justify-end mt-2">
+              <button
+                onclick="submitRootComment()"
+                class="bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold px-4 py-2 rounded-lg transition cursor-pointer"
+              >
+                댓글 등록
+              </button>
+            </div>
+          </div>
+
+          <div id="comments-container" class="space-y-4"></div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "theologia_archive_v1";
+    const API_KEY_STORAGE = "theologia_gemini_api_key_v1";
+    const GEMINI_MODEL = "gemini-2.5-flash";
+
+    const DEFAULT_POSTS = [
+      {
+        id: "2026-11-24-sample",
+        date: "2026-11-24",
+        title: "칼뱅의 '하나님 지식과 인간 지식의 상관관계'에 관한 《기독교 강요》 고찰",
+        sentences: [
+          "장 칼뱅은 1559년 최종판 《기독교 강요》 제1권 제1장에서 참된 지혜는 하나님을 아는 지식과 우리 자신을 아는 지식이라는 두 부분으로 이루어진다고 서술한다 [장 칼뱅, 《기독교 강요》, 1559, 1.1.1].",
+          "칼뱅에 따르면 이 두 지식은 서로 긴밀히 연결되어 있어 어느 한쪽이 먼저라고 단정하기 어렵다 [장 칼뱅, 《기독교 강요》, 1559, 1.1.1].",
+          "인간이 자기 자신을 돌아보지 않고서는 하나님께 나아갈 수 없으며, 동시에 하나님을 바라보지 않고서는 자기 자신의 참된 상태를 분별할 수 없다 [장 칼뱅, 《기독교 강요》, 1559, 1.1.2].",
+          "인간은 자신의 무지와 허약함, 부패성을 자각할 때에야 비로소 전능하고 의로우신 하나님을 우러러보게 된다 [장 칼뱅, 《기독교 강요》, 1559, 1.1.2].",
+          "반대로 인간이 스스로를 온전하고 지혜로운 존재로 여기는 동안에는 자신의 비참함을 깨닫지 못한다 [장 칼뱅, 《기독교 강요》, 1559, 1.1.2].",
+          "또한 인간은 자신의 결핍을 오직 하나님 안에서만 채울 수 있음을 인식할 때 하나님 지식에 가까워진다 [장 칼뱅, 《기독교 강요》, 1559, 1.1.1].",
+          "칼뱅은 인간의 지성이 타락 이후 영적·신적 진리를 바르게 파악하는 데 한계를 지닌다고 본다 [장 칼뱅, 《기독교 강요》, 1559, 2.2.12].",
+          "피조 세계의 질서와 양심 속에도 하나님의 흔적이 남아 있으나, 죄로 인해 인간의 이해력은 왜곡되고 흐려졌다 [장 칼뱅, 《기독교 강요》, 1559, 1.5.14].",
+          "따라서 성경은 자연 계시의 불완전한 인식을 바로잡고 명확히 해주는 안경과 같은 역할을 수행한다 [장 칼뱅, 《기독교 강요》, 1559, 1.6.1].",
+          "성경 계시를 통해 제시되는 하나님 지식은 추상적 사변이 아니라 경외와 신뢰를 불러일으키는 구원론적·신앙적 지식이다 [리처드 멀러, 《칼뱅과 개혁주의 정통주의》, 2000, 2장].",
+          "인간 지식 역시 자아도취적 자기분석이 아니라 하나님 앞에서 피조물로서의 한계를 인정하는 겸손한 자기 인식이다 [에드워드 다우이, 《칼뱅의 신학》, 1922, 1장].",
+          "이처럼 칼뱅의 구도에서 신지식과 자기지식은 상호 보완적이며 순환적인 관계를 형성한다 [장 칼뱅, 《기독교 강요》, 1559, 1.1.1–3].",
+          "신학적 탐구는 인간의 지적 우월성을 증명하는 작업이 아니라 하나님과 자기 존재의 좌표를 확인하는 과정으로 제시된다 [허먼 바빙크, 《개혁교의학》 제2권, 1897, 1장].",
+          "이러한 관점은 종교개혁 신학이 인간의 이성적 자율성보다 계시와 은혜의 전제를 앞세우는 특징을 보여준다 [알리스터 맥그라스, 《기독교 신학 입문》, 2011, 3장]."
+        ],
+        references: [
+          "장 칼뱅, 《기독교 강요(Institutio Christianae Religionis)》, 1559년 최종판, 제1권 및 제2권.",
+          "리처드 멀러, 《칼뱅과 개혁주의 정통주의(The Unaccommodated Calvin)》, Oxford University Press, 2000.",
+          "허먼 바빙크, 《개혁교의학(Gereformeerde Dogmatiek)》 제2권, 1897."
+        ],
+        comments: [
+          {
+            id: "c-init-1",
+            author: "개혁주의 조직신학 관점",
+            badge: "Reformed",
+            text: "칼뱅이 자기 인식과 하나님 지식을 맞물려 놓은 것은 자연신학의 가능성을 넓히려는 의도가 아니라, 인간의 타락한 실존을 직면하게 하려는 장치입니다. 특히 성경을 '안경'에 비유한 대목은 계시 의존성을 분명히 보여줍니다. 이 구도에서 이성의 역할은 창조적 발견보다 계시의 수용과 정리에 머무르게 됩니다.",
+            replies: []
+          },
+          {
+            id: "c-init-2",
+            author: "철학신학·현대신학 관점",
+            badge: "Philosophical Theology",
+            text: "인간 자기 이해와 신 이해의 상관성을 강조한 점은 실존적·해석학적 접근과 접점을 가집니다. 다만 타락으로 인한 이성의 손상을 지나치게 강조할 경우, 신앙 외부의 보편적 이성이나 타종교·세속 철학과의 대화 지점이 좁아질 수 있습니다. 계시의 특수성과 보편적 이성의 소통 가능성을 어떻게 균형 맞출지가 핵심 쟁점이 됩니다.",
+            replies: []
+          }
+        ]
+      }
+    ];
+
+    let posts = loadPosts();
+    let currentPostId = posts[0]?.id || null;
+
+    function loadPosts() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return [...DEFAULT_POSTS];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) && parsed.length > 0 ? parsed : [...DEFAULT_POSTS];
+      } catch {
+        return [...DEFAULT_POSTS];
+      }
+    }
+
+    function savePosts() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
+    }
+
+    function saveApiKey() {
+      const val = document.getElementById("api-key-input").value.trim();
+      localStorage.setItem(API_KEY_STORAGE, val);
+      showStatus(val ? "Gemini API 키가 브라우저에 저장되었습니다." : "API 키가 비워졌습니다.", "info");
+    }
+
+    function getApiKey() {
+      return document.getElementById("api-key-input").value.trim();
+    }
+
+    function showStatus(message, type = "info") {
+      const banner = document.getElementById("status-banner");
+      const styles = {
+        info: "bg-indigo-50 text-indigo-800 border-indigo-200",
+        error: "bg-rose-50 text-rose-800 border-rose-200",
+        success: "bg-emerald-50 text-emerald-800 border-emerald-200"
+      };
+      banner.className = `mb-6 px-4 py-3 rounded-xl text-sm border ${styles[type] || styles.info}`;
+      banner.textContent = message;
+      banner.classList.remove("hidden");
+    }
+
+    function resetDemoArchive() {
+      posts = [...DEFAULT_POSTS];
+      currentPostId = posts[0].id;
+      savePosts();
+      renderAll();
+      showStatus("기본 샘플 칼럼으로 아카이브가 초기화되었습니다.", "info");
+    }
+
+    function renderArchiveList() {
+      const query = (document.getElementById("search-input").value || "").trim().toLowerCase();
+      const filtered = posts.filter(
+        p => p.title.toLowerCase().includes(query) || p.date.toLowerCase().includes(query)
+      );
+      document.getElementById("archive-count").textContent = `${posts.length}편`;
+
+      const listEl = document.getElementById("archive-list");
+      if (filtered.length === 0) {
+        listEl.innerHTML = `<li class="text-xs text-stone-400 py-4 text-center">일치하는 칼럼이 없습니다.</li>`;
+        return;
+      }
+
+      listEl.innerHTML = filtered
+        .map(post => {
+          const active = post.id === currentPostId;
+          return `
+            <li>
+              <button
+                onclick="selectPost('${post.id}')"
+                class="w-full text-left p-2.5 rounded-xl transition cursor-pointer ${
+                  active ? "bg-indigo-50 text-indigo-900 font-semibold border border-indigo-200" : "hover:bg-stone-100 text-stone-700"
+                }"
+              >
+                <div class="text-[11px] font-mono text-stone-400">${escapeHtml(post.date)}</div>
+                <div class="text-xs mt-0.5 line-clamp-2">${escapeHtml(post.title)}</div>
+              </button>
+            </li>
+          `;
+        })
+        .join("");
+    }
+
+    function selectPost(id) {
+      currentPostId = id;
+      const post = posts.find(p => p.id === id) || posts[0];
+      if (!post) return;
+
+      document.getElementById("post-date").textContent = post.date;
+      document.getElementById("post-title").textContent = post.title;
+      document.getElementById("post-content").innerHTML = (post.sentences || [])
+        .map(s => `<p>${escapeHtml(s)}</p>`)
+        .join("");
+      document.getElementById("post-references").innerHTML = (post.references || [])
+        .map(r => `<li>${escapeHtml(r)}</li>`)
+        .join("");
+
+      renderArchiveList();
+      renderComments();
+    }
+
+    function renderCommentNode(comment) {
+      const isUser = comment.badge === "User";
+      const isSystem = comment.badge === "System";
+      const badgeClass = isUser
+        ? "bg-emerald-100 text-emerald-800"
+        : isSystem
+          ? "bg-stone-200 text-stone-700"
+          : "bg-indigo-100 text-indigo-800";
+
+      const repliesHtml =
+        comment.replies && comment.replies.length > 0
+          ? `<div class="mt-3 pl-3.5 md:pl-5 space-y-3 thread-line">${comment.replies.map(r => renderCommentNode(r)).join("")}</div>`
+          : "";
+
+      return `
+        <div class="bg-stone-50 border border-stone-200/80 rounded-xl p-4">
+          <div class="flex items-center gap-2 mb-1.5">
+            <span class="text-xs font-bold text-stone-800">${escapeHtml(comment.author)}</span>
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full ${badgeClass}">${escapeHtml(comment.badge)}</span>
+          </div>
+          <p class="text-sm text-stone-700 leading-relaxed whitespace-pre-line">${escapeHtml(comment.text)}</p>
+          ${
+            !isSystem
+              ? `
+            <div class="mt-2">
+              <button onclick="toggleReplyBox('${comment.id}')" class="text-xs font-medium text-stone-500 hover:text-indigo-600 cursor-pointer">
+                답글 달기
+              </button>
+            </div>
+            <div id="reply-box-${comment.id}" class="hidden mt-2.5">
+              <textarea
+                id="reply-input-${comment.id}"
+                rows="2"
+                placeholder="이 의견에 대한 답글이나 반론을 입력하세요..."
+                class="w-full p-2 text-xs border border-stone-300 rounded-lg focus:outline-none focus:border-indigo-500 bg-white"
+              ></textarea>
+              <div class="flex justify-end gap-2 mt-1.5">
+                <button onclick="toggleReplyBox('${comment.id}')" class="text-xs text-stone-500 px-2 py-1 cursor-pointer">취소</button>
+                <button onclick="submitReply('${comment.id}')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-1 rounded-lg cursor-pointer">
+                  전송
+                </button>
+              </div>
+            </div>
+          `
+              : ""
+          }
+          ${repliesHtml}
+        </div>
+      `;
+    }
+
+    function renderComments() {
+      const post = posts.find(p => p.id === currentPostId);
+      const container = document.getElementById("comments-container");
+      if (!post || !post.comments || post.comments.length === 0) {
+        container.innerHTML = `<p class="text-xs text-stone-400">아직 등록된 댓글이 없습니다.</p>`;
+        return;
+      }
+      container.innerHTML = post.comments.map(c => renderCommentNode(c)).join("");
+    }
+
+    function toggleReplyBox(commentId) {
+      const box = document.getElementById(`reply-box-${commentId}`);
+      if (box) box.classList.toggle("hidden");
+    }
+
+    function findCommentById(list, id) {
+      for (const item of list || []) {
+        if (item.id === id) return item;
+        const found = findCommentById(item.replies, id);
+        if (found) return found;
+      }
+      return null;
+    }
+
+    async function callGeminiJson(prompt) {
+      const apiKey = getApiKey();
+      if (!apiKey) {
+        throw new Error("먼저 좌측에 Gemini API 키를 입력해 주세요.");
+      }
+
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.6,
+              responseMimeType: "application/json"
+            }
+          })
+        }
+      );
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error?.message || "Gemini API 요청에 실패했습니다.");
+      }
+
+      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawText) {
+        throw new Error("모델 응답이 비어 있습니다.");
+      }
+
+      const cleaned = rawText.replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
+      return JSON.parse(cleaned);
+    }
+
+    async function generateNewColumn() {
+      const topicInput = document.getElementById("topic-input");
+      const customTopic = topicInput.value.trim();
+      const btn = document.getElementById("generate-btn");
+
+      btn.disabled = true;
+      btn.textContent = "생성 중...";
+      showStatus("원전·문헌 기반 신학 칼럼과 초기 다중 관점 댓글을 생성하고 있습니다...", "info");
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const prompt = `
+당신은 학술적 신학 아카이브를 정리하는 큐레이터입니다. 다음 지침을 엄격히 따르세요.
+1. 주제: ${customTopic ? `"${customTopic}"` : "조직신학, 교회사, 성서신학, 기독교윤리 중 핵심 신학 주제 하나를 자동 선정"}
+2. 칼럼 분량: "sentences" 배열 안에 14~16개의 독립된 문장을 담아 전체 약 15문장 분량으로 작성하세요.
+3. 출처 명확성: 문장마다 인용·요약한 신학자나 저서의 출처를 [저자명, 《저서명》, 연도, 장/절 또는 페이지] 형태로 명시하세요.
+4. 주관 배제: AI 자신의 의견, 가치판단, 감상, 권고, 결론적 평가를 절대 포함하지 마세요. 학술 문헌의 논지만 객관적으로 서술하세요.
+5. 초기 댓글: "initial_comments" 배열 안에 2~3개의 서로 다른 신학 관점(예: 개혁주의, 역사비평/현대신학, 교부신학/가톨릭·정교회 신학 등)의 댓글을 작성하세요. 각 댓글의 "text"는 반드시 3~4문장으로 작성하세요.
+
+반드시 다음 JSON 스키마로만 응답하세요:
+{
+  "title": "칼럼 제목",
+  "sentences": ["문장1", "문장2"],
+  "references": ["출처 문헌 1", "출처 문헌 2"],
+  "initial_comments": [
+    { "author": "관점 명칭", "badge": "학파/분야", "text": "3~4문장 댓글" }
+  ]
+}
+`;
+
+      try {
+        const result = await callGeminiJson(prompt);
+        const newPost = {
+          id: `${todayStr}-${Date.now()}`,
+          date: todayStr,
+          title: result.title || "신학 주제 칼럼",
+          sentences: Array.isArray(result.sentences) ? result.sentences : [],
+          references: Array.isArray(result.references) ? result.references : [],
+          comments: (Array.isArray(result.initial_comments) ? result.initial_comments : []).map((c, idx) => ({
+            id: `init-${Date.now()}-${idx}`,
+            author: c.author || "신학 관점 패널",
+            badge: c.badge || "Theology",
+            text: c.text || "",
+            replies: []
+          }))
+        };
+
+        posts.unshift(newPost);
+        currentPostId = newPost.id;
+        topicInput.value = "";
+        savePosts();
+        renderAll();
+        showStatus("새 칼럼과 초기 토론 댓글이 생성되어 아카이브에 저장되었습니다.", "success");
+      } catch (err) {
+        showStatus(`칼럼 생성 오류: ${err.message}`, "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "새 칼럼 생성";
+      }
+    }
+
+    async function submitRootComment() {
+      const textarea = document.getElementById("new-comment-text");
+      const text = textarea.value.trim();
+      if (!text) return;
+
+      const post = posts.find(p => p.id === currentPostId);
+      if (!post) return;
+
+      const userComment = {
+        id: `u-${Date.now()}`,
+        author: "나 (토론자)",
+        badge: "User",
+        text,
+        replies: []
+      };
+      post.comments.unshift(userComment);
+      textarea.value = "";
+      savePosts();
+      renderComments();
+
+      await appendPerspectiveReplies(post, userComment, text, "");
+    }
+
+    async function submitReply(parentId) {
+      const textarea = document.getElementById(`reply-input-${parentId}`);
+      const text = (textarea?.value || "").trim();
+      if (!text) return;
+
+      const post = posts.find(p => p.id === currentPostId);
+      if (!post) return;
+
+      const parent = findCommentById(post.comments, parentId);
+      if (!parent) return;
+
+      const userReply = {
+        id: `u-${Date.now()}`,
+        author: "나 (토론자)",
+        badge: "User",
+        text,
+        replies: []
+      };
+      parent.replies.push(userReply);
+      savePosts();
+      renderComments();
+
+      await appendPerspectiveReplies(post, userReply, text, parent.text);
+    }
+
+    async function appendPerspectiveReplies(post, targetNode, userMessage, parentContext) {
+      const loadingId = `loading-${Date.now()}`;
+      targetNode.replies.push({
+        id: loadingId,
+        author: "다중 관점 패널 응답 생성 중",
+        badge: "System",
+        text: "서로 다른 신학적 시선으로 답글을 작성하고 있습니다...",
+        replies: []
+      });
+      savePosts();
+      renderComments();
+
+      const prompt = `
+칼럼 제목: ${post.title}
+칼럼 본문 요약: ${(post.sentences || []).join(" ")}
+${parentContext ? `상위 댓글 맥락: ${parentContext}` : ""}
+사용자 발언: ${userMessage}
+
+사용자 발언에 대해 서로 다른 신학적 입장(2~3개 관점)에서 각기 답글을 작성하세요.
+규칙:
+1. 각 답글("text")은 반드시 3~4문장으로 작성하세요.
+2. 서로 다른 신학적 관점(예: 개혁주의, 자유주의/현대신학, 역사비평학, 교부신학 등)을 반영하세요.
+
+반드시 다음 JSON 배열 형식으로만 응답하세요:
+[
+  { "author": "관점 명칭", "badge": "학파/분야", "text": "3~4문장 답글" },
+  { "author": "관점 명칭", "badge": "학파/분야", "text": "3~4문장 답글" }
+]
+`;
+
+      try {
+        const aiReplies = await callGeminiJson(prompt);
+        targetNode.replies = targetNode.replies.filter(r => r.id !== loadingId);
+
+        (Array.isArray(aiReplies) ? aiReplies : []).forEach((item, idx) => {
+          targetNode.replies.push({
+            id: `ai-${Date.now()}-${idx}`,
+            author: item.author || "신학 패널",
+            badge: item.badge || "Perspective",
+            text: item.text || "",
+            replies: []
+          });
+        });
+
+        savePosts();
+        renderComments();
+      } catch (err) {
+        targetNode.replies = targetNode.replies.filter(r => r.id !== loadingId);
+        targetNode.replies.push({
+          id: `err-${Date.now()}`,
+          author: "안내",
+          badge: "System",
+          text: `답글 생성에 실패했습니다: ${err.message}`,
+          replies: []
+        });
+        savePosts();
+        renderComments();
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&")
+        .replace(/</g, "<")
+        .replace(/>/g, ">")
+        .replace(/"/g, """)
+        .replace(/'/g, "'");
+    }
+
+    function renderAll() {
+      renderArchiveList();
+      if (currentPostId) {
+        selectPost(currentPostId);
+      } else {
+        renderComments();
+      }
+    }
+
+    // 초기화
+    const savedKey = localStorage.getItem(API_KEY_STORAGE);
+    if (savedKey) {
+      document.getElementById("api-key-input").value = savedKey;
+    }
+    renderAll();
+  </script>
+</body>
+</html>
